@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
  -->
-<LinearLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -39,10 +39,11 @@
     </android.support.v7.widget.Toolbar>
 
     <fragment
+        android:layout_centerHorizontal="true"
         android:id="@+id/fragment_forecast"
         android:name="com.example.android.sunshine.app.ForecastFragment"
-        android:layout_width="match_parent"
+        android:layout_width="@dimen/landscape_forecast_view_width"
         android:layout_height="match_parent"
         tools:context="com.example.android.sunshine.app.ForecastFragment"
         tools:layout="@android:layout/list_content"/>
-</LinearLayout>
+</RelativeLayout>

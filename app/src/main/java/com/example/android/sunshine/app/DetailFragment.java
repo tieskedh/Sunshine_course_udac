@@ -19,12 +19,13 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
-import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.CardView;
 import android.support.v7.widget.ShareActionProvider;
 import android.support.v7.widget.Toolbar;
 import android.view.LayoutInflater;
@@ -33,6 +34,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -57,19 +59,19 @@ public class DetailFragment extends Fragment implements LoaderManager.LoaderCall
     private static final int DETAIL_LOADER = 0;
 
     private static final String[] DETAIL_COLUMNS = {
-            WeatherEntry.TABLE_NAME + "." + WeatherEntry._ID,
-            WeatherEntry.COLUMN_DATE,
-            WeatherEntry.COLUMN_SHORT_DESC,
-            WeatherEntry.COLUMN_MAX_TEMP,
-            WeatherEntry.COLUMN_MIN_TEMP,
-            WeatherEntry.COLUMN_HUMIDITY,
-            WeatherEntry.COLUMN_PRESSURE,
-            WeatherEntry.COLUMN_WIND_SPEED,
-            WeatherEntry.COLUMN_DEGREES,
-            WeatherEntry.COLUMN_WEATHER_ID,
-            // This works because the WeatherProvider returns location data joined with
-            // weather data, even though they're stored in two different tables.
-            WeatherContract.LocationEntry.COLUMN_LOCATION_SETTING
+        WeatherEntry.TABLE_NAME + "." + WeatherEntry._ID,
+        WeatherEntry.COLUMN_DATE,
+        WeatherEntry.COLUMN_SHORT_DESC,
+        WeatherEntry.COLUMN_MAX_TEMP,
+        WeatherEntry.COLUMN_MIN_TEMP,
+        WeatherEntry.COLUMN_HUMIDITY,
+        WeatherEntry.COLUMN_PRESSURE,
+        WeatherEntry.COLUMN_WIND_SPEED,
+        WeatherEntry.COLUMN_DEGREES,
+        WeatherEntry.COLUMN_WEATHER_ID,
+        // This works because the WeatherProvider returns location data joined with
+        // weather data, even though they're stored in two different tables.
+        WeatherContract.LocationEntry.COLUMN_LOCATION_SETTING
     };
 
     // These indices are tied to DETAIL_COLUMNS.  If DETAIL_COLUMNS changes, these
@@ -84,6 +86,13 @@ public class DetailFragment extends Fragment implements LoaderManager.LoaderCall
     public static final int COL_WEATHER_WIND_SPEED = 7;
     public static final int COL_WEATHER_DEGREES = 8;
     public static final int COL_WEATHER_CONDITION_ID = 9;
+
+
+    public static final int SHOW = View.VISIBLE;
+    public static final int HIDE = View.GONE;
+    public static final int REFRESH = View.INVISIBLE;
+    private int showParentState = View.VISIBLE;
+
 
     private ImageView mIconView;
     private TextView mDateView;
@@ -109,8 +118,7 @@ public class DetailFragment extends Fragment implements LoaderManager.LoaderCall
         if (arguments != null) {
             mUri = arguments.getParcelable(DetailFragment.DETAIL_URI);
         }
-
-        View rootView = inflater.inflate(R.layout.fragment_detail, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_detail_start, container, false);
         mIconView = (ImageView) rootView.findViewById(R.id.detail_icon);
         mDateView = (TextView) rootView.findViewById(R.id.detail_date_textview);
         mDescriptionView = (TextView) rootView.findViewById(R.id.detail_forecast_textview);
@@ -133,7 +141,7 @@ public class DetailFragment extends Fragment implements LoaderManager.LoaderCall
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        if ( getActivity() instanceof DetailActivity ){
+        if (getActivity() instanceof DetailActivity) {
             // Inflate the menu; this adds items to the action bar if it is present.
             inflater.inflate(R.menu.detailfragment, menu);
             finishCreatingMenu(menu);
@@ -154,7 +162,7 @@ public class DetailFragment extends Fragment implements LoaderManager.LoaderCall
         super.onActivityCreated(savedInstanceState);
     }
 
-    void onLocationChanged( String newLocation ) {
+    void onLocationChanged(String newLocation) {
         // replace the uri, since the location has changed
         Uri uri = mUri;
         if (null != uri) {
@@ -167,41 +175,77 @@ public class DetailFragment extends Fragment implements LoaderManager.LoaderCall
 
     @Override
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-        if ( null != mUri ) {
+        if (null != mUri) {
             // Now create and return a CursorLoader that will take care of
             // creating a Cursor for the data being displayed.
             return new CursorLoader(
-                    getActivity(),
-                    mUri,
-                    DETAIL_COLUMNS,
-                    null,
-                    null,
-                    null
+                getActivity(),
+                mUri,
+                DETAIL_COLUMNS,
+                null,
+                null,
+                null
             );
         }
+        showParent(HIDE);
+
         return null;
+    }
+
+    @Override
+    public void onViewStateRestored(@Nullable Bundle savedInstanceState) {
+        super.onViewStateRestored(savedInstanceState);
+        if (savedInstanceState != null) {
+            showParent(savedInstanceState.getInt(null));
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        outState.putInt(null, showParentState);
+        super.onSaveInstanceState(outState);
+    }
+
+
+    public void showParent(int show) {
+        View view = getView();
+        ViewParent vp = getView().getParent();
+        if (vp instanceof CardView) {
+            if (view != null) {
+                if (show == REFRESH) {
+                    show = showParentState;
+                } else {
+                    showParentState = show;
+                }
+                //noinspection WrongConstant
+                ((CardView) vp).setVisibility(show);
+            }
+        }
+
+
     }
 
     @Override
     public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
         if (data != null && data.moveToFirst()) {
+            showParent(SHOW);
             // Read weather condition ID from cursor
             int weatherId = data.getInt(COL_WEATHER_CONDITION_ID);
 
-            if ( Utility.usingLocalGraphics(getActivity()) ) {
+            if (Utility.usingLocalGraphics(getActivity())) {
                 mIconView.setImageResource(Utility.getArtResourceForWeatherCondition(weatherId));
             } else {
                 // Use weather art image
                 Glide.with(this)
-                        .load(Utility.getArtUrlForWeatherCondition(getActivity(), weatherId))
-                        .error(Utility.getArtResourceForWeatherCondition(weatherId))
-                        .crossFade()
-                        .into(mIconView);
+                    .load(Utility.getArtUrlForWeatherCondition(getActivity(), weatherId))
+                    .error(Utility.getArtResourceForWeatherCondition(weatherId))
+                    .crossFade()
+                    .into(mIconView);
             }
 
             // Read date from cursor and update views for day of week and date
             long date = data.getLong(COL_WEATHER_DATE);
-            String dateText = Utility.getFullFriendlyDayString(getActivity(),date);
+            String dateText = Utility.getFullFriendlyDayString(getActivity(), date);
             mDateView.setText(dateText);
 
             // Get description from weather condition ID
@@ -256,23 +300,23 @@ public class DetailFragment extends Fragment implements LoaderManager.LoaderCall
                 mShareActionProvider.setShareIntent(createShareForecastIntent());
             }
         }
-        AppCompatActivity activity = (AppCompatActivity)getActivity();
+        AppCompatActivity activity = (AppCompatActivity) getActivity();
         Toolbar toolbarView = (Toolbar) getView().findViewById(R.id.toolbar);
 
         // We need to start the enter transition after the data has loaded
         if (activity instanceof DetailActivity) {
             activity.supportStartPostponedEnterTransition();
 
-            if ( null != toolbarView ) {
+            if (null != toolbarView) {
                 activity.setSupportActionBar(toolbarView);
 
                 activity.getSupportActionBar().setDisplayShowTitleEnabled(false);
                 activity.getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             }
         } else {
-            if ( null != toolbarView ) {
+            if (null != toolbarView) {
                 Menu menu = toolbarView.getMenu();
-                if ( null != menu ) menu.clear();
+                if (null != menu) menu.clear();
                 toolbarView.inflateMenu(R.menu.detailfragment);
                 finishCreatingMenu(toolbarView.getMenu());
             }
@@ -280,5 +324,6 @@ public class DetailFragment extends Fragment implements LoaderManager.LoaderCall
     }
 
     @Override
-    public void onLoaderReset(Loader<Cursor> loader) { }
+    public void onLoaderReset(Loader<Cursor> loader) {
+    }
 }
